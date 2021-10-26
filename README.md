@@ -52,9 +52,13 @@ Change the `[env]` accordingly to run in each environment
 ```
 python fill_buffer.py --alg=margin_fcn_si --env=[env] --heightmap_size=90 --num_rotations=6
 ```
-### Equi FCN
+### Equivariant FCN with dynamic filter
 ```
 python main.py --alg=margin_fcn_si --model=equ_resu_df_nout --equi_n=12 --env=[env] --heightmap_size=90 --num_rotations=6 
+```
+### Equivariant FCN with lift expansion
+```
+python main.py --alg=margin_fcn_si --model=equ_resu_exp_nout --equi_n=12 --env=[env] --heightmap_size=90 --num_rotations=6 
 ```
 
 ## Running Equivariant ASR
@@ -62,18 +66,36 @@ python main.py --alg=margin_fcn_si --model=equ_resu_df_nout --equi_n=12 --env=[e
 ```
 python fill_buffer.py --alg=margin_asr --env=[env]
 ```
-### Equi ASR
+### Equivariant ASR
 ```
 python main.py --alg=margin_asr --model=equ_resu_df_flip --equi_n=4 --q2_model=equ_shift_df --env=[env]
 ```
+### Equivariant ASR variations
+#### Equivariant ASR with Q1 using lift expansion (instead of dynamic filter)
+```
+python main.py --alg=margin_asr --model=equ_resu_exp_flip --equi_n=4 --q2_model=equ_shift_df --env=[env]
+```
+#### Equivariant ASR with Q1 in Cyclic Group C8 (instead of Dihedral group D4)
+```
+python main.py --alg=margin_asr --model=equ_resu_df --equi_n=8 --q2_model=equ_shift_df --env=[env]
+```
+#### Equivariant ASR with Q2 using deictic encoding (instead of equivariant network)
+```
+python main.py --alg=margin_asr_deictic --model=equ_resu_df_flip --equi_n=4 --q2_model=cnn --env=[env]
+```
+
 ## Running Equivariant ASR in SE(3)
 ### Gather expert demonstrations
 ```
 python fill_buffer.py --alg=margin_asr_5l_deictic35 --env=[env] --action_sequence=xyzrrrp --in_hand_mode=proj --patch_size=40
 ```
-### Equi ASR
+### Equivariant ASR with Q2 using equivariant network and Q3-Q5 using deictic encoding
 ```
 python main.py --alg=margin_asr_5l_deictic35 --model=equ_resu_df_flip --equi_n=4 --q2_model=equ_shift_df --env=[env] --load_aug_n=0 --action_sequence=xyzrrrp --in_hand_mode=proj --patch_size=40
+```
+### Equivariant ASR with Q2-Q5 using deictic encoding
+```
+python main.py --alg=margin_asr_5l_deictic --model=equ_resu_df_flip --equi_n=4 --q2_model=cnn --env=[env] --load_aug_n=0 --action_sequence=xyzrrrp --in_hand_mode=proj --patch_size=40
 ```
 
 ## Results

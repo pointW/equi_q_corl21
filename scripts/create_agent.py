@@ -70,26 +70,34 @@ def createAgent():
     else:
         initialize = True
 
+    # conventional cnn
     if model == 'resucat':
         fcn = ResUCatShared(1, fcn_out, domain_shape=(1, diag_length, diag_length), patch_shape=patch_shape).to(device)
-    elif model == 'ucat':
-        fcn = UCat(1, fcn_out, domain_shape=(1, diag_length, diag_length), patch_shape=patch_shape).to(device)
 
-    ###################################################################################
+    ########################### Equivariant FCN and ASR Q1 ############################
 
+    # equivariant asr q1 with lift expansion using cyclic group
     elif model == 'equ_resu_exp':
         fcn = EquResUExpand(1, fcn_out, domain_shape=(1, diag_length, diag_length), patch_shape=patch_shape, N=equi_n, initialize=initialize).to(device)
+    # equivariant asr q1 with lift expansion using dihedral group
     elif model == 'equ_resu_exp_flip':
         fcn = EquResUExpand(1, fcn_out, domain_shape=(1, diag_length, diag_length), patch_shape=patch_shape, N=equi_n, flip=True, initialize=initialize).to(device)
+    # equivariant asr q1 with dynamic filter using cyclic group
     elif model == 'equ_resu_df':
         fcn = EquResUDFReg(1, fcn_out, domain_shape=(1, diag_length, diag_length), patch_shape=patch_shape, N=equi_n, initialize=initialize).to(device)
+    # equivariant asr q1 with dynamic filter using dihedral group
     elif model == 'equ_resu_df_flip':
         fcn = EquResUDFReg(1, fcn_out, domain_shape=(1, diag_length, diag_length), patch_shape=patch_shape, N=equi_n, flip=True, initialize=initialize).to(device)
+    # equivariant fcn with dynamic filter
     elif model == 'equ_resu_df_nout':
         fcn = EquResUDFRegNOut(1, num_primitives, domain_shape=(1, diag_length, diag_length), patch_shape=patch_shape, N=equi_n, n_middle_channels=(16, 32, 64, 128), kernel_size=3, quotient=False, last_quotient=True, initialize=initialize).to(device)
+    # equivariant fcn with lift expansion
     elif model == 'equ_resu_exp_nout':
         fcn = EquResUExpandRegNOut(1, num_primitives, domain_shape=(1, diag_length, diag_length), patch_shape=patch_shape, N=equi_n, n_middle_channels=(16, 32, 64, 128), kernel_size=3, quotient=False, last_quotient=True, initialize=initialize).to(device)
 
+    ###################################################################################
+
+    # transporter network baselines
     elif alg.find('tp'):
         # pick = Attention(1, num_rotations, half_rotation).to(device)
         # place = Transport(1, num_rotations, half_rotation).to(device)
@@ -113,13 +121,9 @@ def createAgent():
                 q2 = CNNShared5l(q2_input_shape, q2_output_size).to(device)
             else:
                 q2 = CNNShared(q2_input_shape, q2_output_size).to(device)
-        elif q2_model == 'cnn_sep_enc':
-            q2 = CNNSepEnc(q2_input_shape, q2_output_size).to(device)
-        elif q2_model == 'cnn_patch_only':
-            q2 = CNNPatchOnly(q2_input_shape, q2_output_size).to(device)
 
-        ###################################################################################
-
+        ################################### Equivariant ASR Q2 ###########################
+        # equivariant asr q2 with dynamic filter
         elif q2_model == 'equ_shift_df':
             if patch_size == 40:
                 q2 = EquShiftQ2DF3P40(q2_input_shape, num_rotations, num_primitives, kernel_size=7, n_hidden=32, quotient=False,
@@ -127,7 +131,9 @@ def createAgent():
             else:
                 q2 = EquShiftQ2DF3(q2_input_shape, num_rotations, num_primitives, kernel_size=7, n_hidden=32, quotient=False,
                                     last_quotient=True, initialize=initialize).to(device)
+        ###################################################################################
 
+    # 2d agents (x, y)
     if action_sequence == 'xyp':
         if alg == 'dqn_fcn':
             agent = DQN2DFCN(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size)
@@ -139,8 +145,11 @@ def createAgent():
             raise NotImplementedError
         agent.initNetwork(fcn)
 
+    # 3d agents (x, y, theta)
     elif action_sequence == 'xyrp':
+        # ASR agents
         if alg.find('asr') > -1:
+            # ASR
             if alg == 'dqn_asr':
                 agent = DQN3DASR(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
                                  num_rotations, rz_range)
@@ -153,6 +162,7 @@ def createAgent():
                 agent = Policy3DASR(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
                                     num_rotations, rz_range)
                 agent.initNetwork(fcn, q2)
+            # ASR + deictic encoding
             elif alg == 'dqn_asr_deictic':
                 agent = DQN3DASRDeictic(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
                                         num_rotations, rz_range)
@@ -165,30 +175,7 @@ def createAgent():
                 agent = Policy3DASRDeictic(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
                                            num_rotations, rz_range)
                 agent.initNetwork(fcn, q2)
-            elif alg == 'dqn_asr_sep_enc':
-                agent = DQN3DASRSepEnc(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
-                                       num_rotations, rz_range)
-                agent.initNetwork(fcn, q2)
-            elif alg == 'dagger_asr_sep_enc':
-                agent = Policy3DASRSepEnc(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
-                                          num_rotations, rz_range)
-                agent.initNetwork(fcn, q2)
-            elif alg == 'dqn_asr_aug':
-                agent = DQN3DASRAug(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
-                                    num_rotations, rz_range)
-                agent.initNetwork(fcn, q2)
-            elif alg == 'margin_asr_aug':
-                agent = Margin3DASRAug(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
-                                       num_rotations, rz_range, margin, margin_l, margin_weight, margin_beta)
-                agent.initNetwork(fcn, q2)
-            elif alg == 'dqn_asr_deictic_aug':
-                agent = DQN3DASRDeicticAug(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
-                                           num_rotations, rz_range)
-                agent.initNetwork(fcn, q2)
-            elif alg == 'margin_asr_deictic_aug':
-                agent = Margin3DASRDeicticAug(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
-                                              num_rotations, rz_range, margin, margin_l, margin_weight, margin_beta)
-                agent.initNetwork(fcn, q2)
+            # ASR + DrQ
             elif alg == 'dqn_asr_drq':
                 agent = DQN3DASRDrQ(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
                                     num_rotations, rz_range)
@@ -200,18 +187,16 @@ def createAgent():
 
             else:
                 raise NotImplementedError
-
+        # FCN agents
         elif alg.find('fcn_si') > -1:
+            # FCN
             if alg == 'dqn_fcn_si':
                 agent = DQN3DFCNSingleIn(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size, num_rotations, rz_range)
             elif alg == 'dagger_fcn_si':
                 agent = Policy3DFCNSingleIn(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size, num_rotations, rz_range)
             elif alg == 'margin_fcn_si':
                 agent = Margin3DFCNSingleIn(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size, num_rotations, rz_range, margin, margin_l, margin_weight, margin_beta)
-            elif alg == 'dqn_fcn_si_aug':
-                agent = DQN3DFCNSingleInAug(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size, num_rotations, rz_range)
-            elif alg == 'margin_fcn_si_aug':
-                agent = Margin3DFCNSingleInAug(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size, num_rotations, rz_range, margin, margin_l, margin_weight, margin_beta)
+            # FCN + DrQ
             elif alg == 'dqn_fcn_si_drq':
                 agent = DQN3DFCNSingleInDrQ(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size, num_rotations, rz_range)
             elif alg == 'margin_fcn_si_drq':
@@ -220,7 +205,7 @@ def createAgent():
                 raise NotImplementedError
             agent.initNetwork(fcn)
 
-
+        # Rot FCN agents
         elif alg.find('fcn') > -1:
             if alg == 'dqn_fcn':
                 agent = DQN3DFCN(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size, num_rotations, rz_range)
@@ -228,14 +213,11 @@ def createAgent():
                 agent = Policy3DFCN(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size, num_rotations, rz_range)
             elif alg == 'margin_fcn':
                 agent = Margin3DFCN(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size, num_rotations, rz_range, margin, margin_l, margin_weight, margin_beta)
-            elif alg == 'dqn_fcn_aug':
-                agent = DQN3DFCNAug(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size, num_rotations, rz_range)
-            elif alg == 'margin_fcn_aug':
-                agent = Margin3DFCNAug(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size, num_rotations, rz_range, margin, margin_l, margin_weight, margin_beta)
             else:
                 raise NotImplementedError
             agent.initNetwork(fcn)
 
+        # Transporter agents
         elif alg.find('tp') > -1:
             if alg == 'dqn_tp':
                 agent = DQN3DTP(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size, num_rotations, rz_range)
@@ -246,7 +228,9 @@ def createAgent():
 
             agent.initNetwork(place, pick)
 
+    # 6d agent (x, y, z, theta, phi, psi)
     elif action_sequence == 'xyzrrrp':
+        # ASR agents
         if alg.find('asr') > -1:
             if alg.find('5l') > -1:
                 q3_input_shape = (patch_channel + 1, patch_size, patch_size)
@@ -264,6 +248,7 @@ def createAgent():
                 q3 = CNNShared5l(q3_input_shape, q3_output_size).to(device)
                 q4 = CNNShared5l(q4_input_shape, q4_output_size).to(device)
                 q5 = CNNShared5l(q5_input_shape, q5_output_size).to(device)
+                # cnn q2-q5
                 if alg == 'dqn_asr_5l':
                     agent = DQN6DASR5L(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
                                        num_rotations, rz_range, num_rx, (min_rx, max_rx), num_rx, (min_rx, max_rx), num_zs,
@@ -276,6 +261,7 @@ def createAgent():
                     agent = Policy6DASR5L(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
                                           num_rotations, rz_range, num_rx, (min_rx, max_rx), num_rx, (min_rx, max_rx),
                                           num_zs, (min_z, max_z))
+                # deictic q2-q5
                 elif alg == 'dqn_asr_5l_deictic':
                     agent = DQN6DASR5LDeictic(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
                                               num_rotations, rz_range, num_rx, (min_rx, max_rx), num_rx, (min_rx, max_rx),
@@ -284,6 +270,7 @@ def createAgent():
                     agent = Margin6DASR5LDeictic(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
                                                  num_rotations, rz_range, num_rx, (min_rx, max_rx), num_rx, (min_rx, max_rx),
                                                  num_zs, (min_z, max_z), margin, margin_l, margin_weight, margin_beta)
+                # deictic q3-q5 (specifically for using equivariant q2)
                 elif alg == 'dqn_asr_5l_deictic35':
                     agent = DQN6DASR5LDeictic35(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
                                                 num_rotations, rz_range, num_rx, (min_rx, max_rx), num_rx, (min_rx, max_rx),
